@@ -41,10 +41,13 @@ def load_preset(jd_key: str, resume_key: str) -> Tuple[str, str]:
 def run_single_candidate_screening(
     jd_text: str,
     resume_text: str,
+    required_exp: str,
+    work_mode: str,
+    target_location: str,
     api_key_input: str,
     model_choice: str
 ) -> Tuple[str, str, str, str, str]:
-    """Executes the LangGraph recruitment graph for a single candidate."""
+    """Executes the LangGraph recruitment graph for a single candidate with experience, work mode, and location filters."""
     if not jd_text.strip() or not resume_text.strip():
         return "⚠️ Please provide both a Job Description and Candidate Resume.", "", "", "", ""
 
@@ -53,6 +56,9 @@ def run_single_candidate_screening(
     initial_state = {
         "job_description": jd_text,
         "candidate_resume": resume_text,
+        "required_experience": required_exp,
+        "work_mode": work_mode,
+        "target_location": target_location,
         "screening_report": None,
         "critique": None,
         "interview_kit": None,
@@ -79,6 +85,8 @@ def run_single_candidate_screening(
         status_md = f"### 👤 Candidate: **{name}**\n\n"
         status_md += f"🎯 **Overall Match Score:** `{score}%` &nbsp;&nbsp;|&nbsp;&nbsp; 📋 **Recommendation:** `{rec}`\n\n"
         status_md += f"**Executive Summary:** {screening.get('executive_summary', '')}\n\n"
+        status_md += f"⏳ **Experience Fit:** {screening.get('experience_fit_commentary', 'N/A')}\n\n"
+        status_md += f"📍 **Work Mode & Location Fit:** {screening.get('work_mode_and_location_fit', 'N/A')}\n\n"
         
         # Formatted Output 2: Key Qualifications & Dealbreakers
         qual_md = "#### ✅ Key Qualifications:\n" + "\n".join([f"- {q}" for q in screening.get("key_qualifications", [])])
@@ -169,6 +177,9 @@ def execute_sourcing_tool(
 
 def screen_sourced_candidates(
     jd_preset_key: str,
+    required_exp: str,
+    work_mode: str,
+    target_location: str,
     api_key_input: str,
     model_choice: str
 ) -> Tuple[str, List[List[Any]]]:
@@ -185,6 +196,9 @@ def screen_sourced_candidates(
         state = {
             "job_description": jd_text,
             "candidate_resume": cand.raw_resume_text,
+            "required_experience": required_exp,
+            "work_mode": work_mode,
+            "target_location": target_location,
             "screening_report": None,
             "critique": None,
             "interview_kit": None,
@@ -202,16 +216,19 @@ def screen_sourced_candidates(
             cand.candidate_name,
             f"{report.get('overall_match_score', 0)}%",
             report.get("recommendation", "N/A"),
-            ", ".join(report.get("key_qualifications", [])[:2]),
-            ", ".join(report.get("critical_gaps", [])[:2])
+            report.get("experience_fit_commentary", "N/A")[:50] + "...",
+            report.get("work_mode_and_location_fit", "N/A")[:50] + "..."
         ])
         
     results.sort(key=lambda x: int(x[2].replace("%", "")), reverse=True)
-    summary = f"### 🏆 Screening Leaderboard for {len(results)} Sourced Candidate(s)\nScreened against target JD: `{jd_preset_key}`"
+    summary = f"### 🏆 Screening Leaderboard for {len(results)} Sourced Candidate(s)\nCriteria: Experience=`{required_exp}`, WorkMode=`{work_mode}`, Location=`{target_location}`"
     return summary, results
 
 def run_batch_candidate_leaderboard(
     jd_key: str,
+    required_exp: str,
+    work_mode: str,
+    target_location: str,
     api_key_input: str,
     model_choice: str
 ) -> Tuple[str, List[List[Any]]]:
@@ -225,6 +242,9 @@ def run_batch_candidate_leaderboard(
         state = {
             "job_description": jd_text,
             "candidate_resume": r_text,
+            "required_experience": required_exp,
+            "work_mode": work_mode,
+            "target_location": target_location,
             "screening_report": None,
             "critique": None,
             "interview_kit": None,
@@ -247,7 +267,7 @@ def run_batch_candidate_leaderboard(
         
     results.sort(key=lambda x: int(x[1].replace("%", "")), reverse=True)
     
-    summary = f"### 🏆 Candidate Leaderboard for `{jd_key}`\nProcessed {len(results)} candidates through LangGraph evaluation loops."
+    summary = f"### 🏆 Candidate Leaderboard for `{jd_key}`\nCriteria: Experience=`{required_exp}`, Work Mode=`{work_mode}`, Location=`{target_location}`"
     return summary, results
 
 def test_api_connection(api_key: str, base_url: str, model: str) -> str:
@@ -272,7 +292,7 @@ def create_ui() -> gr.Blocks:
             with gr.Column():
                 gr.Markdown(
                     "# 🤖 Recruitment & Selection AI Agent\n"
-                    "**Automated Sourcing Tools (LinkedIn, Naukri, Indeed, Foundit, Local Folder), Candidate Screening, Reflection Loops, & Interview Kit Generation**\n"
+                    "**Automated Candidate Sourcing, Experience & Work Mode Filtering, Reflection Loops, & Interview Kits**\n"
                     "*Powered by LangGraph, Python, Gradio, and DeepSeek API*"
                 )
 
@@ -293,15 +313,34 @@ def create_ui() -> gr.Blocks:
                             label="Sample Candidate Resume Preset"
                         )
                         btn_load = gr.Button("📋 Load Preset into Fields", variant="secondary")
+
+                        gr.Markdown("### ⚙️ Screening Criteria & Work Mode Filters")
+                        with gr.Row():
+                            required_exp_in = gr.Dropdown(
+                                choices=["0-2 Years (Junior)", "2-5 Years (Mid)", "5-8 Years (Senior)", "8+ Years (Lead / Principal)", "Flexible"],
+                                value="5-8 Years (Senior)",
+                                label="Required Experience Level"
+                            )
+                            work_mode_in = gr.Radio(
+                                choices=["Remote", "Work From Office", "Hybrid", "Any / Flexible"],
+                                value="Remote",
+                                label="Preferred Work Mode"
+                            )
+                        
+                        target_location_in = gr.Textbox(
+                            label="Target Location",
+                            value="San Francisco, CA / Remote",
+                            placeholder="e.g. Bengaluru, San Francisco, New York..."
+                        )
                         
                         jd_input = gr.Textbox(
                             label="Job Description",
-                            lines=8,
+                            lines=7,
                             placeholder="Paste full Job Description requirements..."
                         )
                         resume_input = gr.Textbox(
                             label="Candidate Resume",
-                            lines=10,
+                            lines=8,
                             placeholder="Paste candidate resume text..."
                         )
                         btn_run = gr.Button("🚀 Run AI Recruitment Graph", variant="primary", size="lg")
@@ -360,11 +399,22 @@ def create_ui() -> gr.Blocks:
                         value="Senior AI & LangGraph Engineer",
                         label="Target Job Description for Screening"
                     )
-                    btn_screen_sourced = gr.Button("⚡ Import & Screen All Sourced Candidates", variant="primary", size="lg")
+                    sourcing_exp = gr.Dropdown(
+                        choices=["0-2 Years", "2-5 Years", "5-8 Years", "8+ Years", "Flexible"],
+                        value="5-8 Years",
+                        label="Min Required Experience"
+                    )
+                    sourcing_work_mode = gr.Radio(
+                        choices=["Remote", "Work From Office", "Hybrid", "Any"],
+                        value="Remote",
+                        label="Work Mode"
+                    )
+                
+                btn_screen_sourced = gr.Button("⚡ Import & Screen All Sourced Candidates", variant="primary", size="lg")
 
                 sourced_screening_status = gr.Markdown()
                 sourced_screening_table = gr.Dataframe(
-                    headers=["Source", "Candidate Name", "Match Score", "Recommendation", "Top Qualifications", "Key Gaps"],
+                    headers=["Source", "Candidate Name", "Match Score", "Recommendation", "Experience Fit", "Work Mode & Location Fit"],
                     datatype=["str", "str", "str", "str", "str", "str"],
                     label="Sourced Candidates Evaluation Leaderboard"
                 )
@@ -377,6 +427,16 @@ def create_ui() -> gr.Blocks:
                         choices=list(SAMPLE_JOB_DESCRIPTIONS.keys()),
                         value="Senior AI & LangGraph Engineer",
                         label="Target Job Description"
+                    )
+                    lead_exp = gr.Dropdown(
+                        choices=["0-2 Years", "2-5 Years", "5-8 Years", "8+ Years", "Flexible"],
+                        value="5-8 Years",
+                        label="Required Experience"
+                    )
+                    lead_work_mode = gr.Radio(
+                        choices=["Remote", "Work From Office", "Hybrid", "Any"],
+                        value="Remote",
+                        label="Work Mode"
                     )
                     btn_run_leaderboard = gr.Button("⚡ Screen All Batch Candidates", variant="primary")
                 
@@ -429,7 +489,7 @@ def create_ui() -> gr.Blocks:
 
         btn_run.click(
             fn=run_single_candidate_screening,
-            inputs=[jd_input, resume_input, api_key_in, model_in],
+            inputs=[jd_input, resume_input, required_exp_in, work_mode_in, target_location_in, api_key_in, model_in],
             outputs=[status_out, summary_out, cat_out, loop_out, interview_kit_out]
         )
 
@@ -441,13 +501,13 @@ def create_ui() -> gr.Blocks:
 
         btn_screen_sourced.click(
             fn=screen_sourced_candidates,
-            inputs=[sourcing_target_jd, api_key_in, model_in],
+            inputs=[sourcing_target_jd, sourcing_exp, sourcing_work_mode, location_filter, api_key_in, model_in],
             outputs=[sourced_screening_status, sourced_screening_table]
         )
 
         btn_run_leaderboard.click(
             fn=run_batch_candidate_leaderboard,
-            inputs=[lead_jd_preset, api_key_in, model_in],
+            inputs=[lead_jd_preset, lead_exp, lead_work_mode, target_location_in, api_key_in, model_in],
             outputs=[lead_summary, leaderboard_table]
         )
 
