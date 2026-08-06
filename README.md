@@ -1,133 +1,107 @@
-# 🤖 AI Agent for Automating Recruitment & Selection
+# 🤖 3-Step Autonomous Recruitment & Selection Lifecycle Agent (with Human-in-the-Loop)
 
-An autonomous HR Talent Acquisition & Selection AI Agent built with **Python**, **`uv`**, **LangGraph** (featuring iterative quality reflection/evaluation loops), **Gradio** web interface, and the **DeepSeek API**.
+An end-to-end autonomous HR Talent Acquisition & Selection AI Agent built with **Python 3.11**, **`uv`**, **LangGraph** (featuring self-correction loops and Human-in-the-Loop checkpoints), **Gradio** web UI, and the **DeepSeek API**.
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![LangGraph](https://img.shields.io/badge/LangGraph-StateGraph-orange)
-![Gradio](https://img.shields.io/badge/Frontend-Gradio-red)
+![Gradio](https://img.shields.io/badge/Frontend-Gradio_6.0-red)
 ![DeepSeek](https://img.shields.io/badge/LLM-DeepSeek--API-purple)
+![Docker](https://img.shields.io/badge/Container-Docker-blue)
 
 ---
 
-## 🌟 Key Features
+## 🌟 3-Step Lifecycle Workflow
 
-1. **Iterative Evaluation & Reflection Loop (LangGraph)**:
-   - **Screener Node**: Evaluates candidate resumes against Job Description across Technical Skills, Relevant Experience, Education, and Cultural Fit.
-   - **QA Audit Evaluator Node**: Inspects the screener's output for missing dealbreakers, unverified claims, or hallucinations.
-   - **Conditional Feedback Loop**: If QA quality score < 80 or needs revision, automatically loops back to `screener_node` for refinement (up to max reflection limit).
-   - **Interview Kit Node**: Generates role-specific behavioral & technical questions with ideal answer rubrics once screening is validated.
+```mermaid
+flowchart TD
+    subgraph STEP1 ["Step 1: Job Intake & Planning"]
+        S1A["a) Define Role & Key Skills Need"] --> S1B["b) Generate AI Job Description"]
+        S1B --> S1C["c) Set Target Salary Bands"]
+    end
 
-2. **DeepSeek API Integration & Robust Fallback**:
-   - Uses OpenAI-compatible client (`https://api.deepseek.com`) supporting `deepseek-chat` and `deepseek-reasoner` models.
-   - Includes a built-in Mock engine so you can test and demonstrate the full application instantly out-of-the-box even without an active API key!
+    subgraph STEP2 ["Step 2: Sourcing, Screening & Email Notifier"]
+        S2A["a) Post Jobs to Boards & Networks"] --> S2B["b & c) Active & Passive Talent Search"]
+        S2B --> S2D["d) Rule-Based & Reflection Resume Screening"]
+        S2D --> S2E["e) Send Shortlist Email Notifications"]
+    end
 
-3. **Multi-Tab Gradio Web UI**:
-   - **Single Candidate Screening & Loop Inspector**: Full candidate evaluation with step-by-step reflection loop inspection.
-   - **Multi-Candidate Leaderboard**: Rank multiple candidates side-by-side against a single JD.
-   - **AI Interview Kit Generator**: Custom questions, rationale, and sample answer rubrics.
-   - **Settings Tab**: Dynamic API Key configuration, model selection, and live connection test button.
+    subgraph STEP3 ["Step 3: Interview, Selection, Offer & Onboarding"]
+        S3A["a) Telephonic Preliminary Round"] --> S3B["b) 🛑 HITL Checkpoint 1: Manager Interview Approval"]
+        S3B --> S3C["c) Candidate Feedback Comparison & Selection"]
+        S3C --> S3D["d) Salary Negotiation & Manager Consent"]
+        S3D --> S3E["e) 🛑 HITL Checkpoint 2: Final Offer Approval"]
+        S3E --> S3F["f) Generate & Send Official Offer Letter"]
+        S3F --> S3G["g) Background Verification (BGV) Check"]
+        S3G --> S3H["h) Onboarding & Paperwork Automation"]
+    end
+
+    STEP1 --> STEP2
+    STEP2 --> STEP3
+```
 
 ---
 
-## 🏗️ Architecture & Graph Loop Workflow
+## 🔑 Key Features
 
-```
-               +----------------------------------+
-               |  Parse JD & Candidate Resume    |
-               +----------------------------------+
-                                |
-                                v
-                    +-----------------------+
-                    |    screener_node      | <------+
-                    +-----------------------+        |
-                                |                    |
-                                v                    | Refinement
-                    +-----------------------+        | Loop
-                    |    evaluator_node     |        | (Score < 80)
-                    +-----------------------+        |
-                                |                    |
-                     [ should_continue? ] -----------+
-                                |
-                   (Score >= 80 or Max Loops)
-                                |
-                                v
-                    +-----------------------+
-                    |  interview_gen_node   |
-                    +-----------------------+
-                                |
-                                v
-                          ((   END   ))
-```
+### **Step 1: Job Intake & Planning**
+- **Need Definition**: Specifies open position title, department, required core skills, and urgency.
+- **AI Job Description Generator**: Generates structured, professional JDs matching role requirements.
+- **Salary Band Configurator**: Sets minimum & maximum target compensation ranges (e.g. ₹18 LPA - ₹28 LPA).
+
+### **Step 2: Sourcing and Screening**
+- **Multi-Channel Job Posting**: Broadcasts job postings to LinkedIn, Naukri, Indeed, Foundit, and internal referral networks.
+- **Active & Passive Talent Search**: Search active applicants and passive candidate pools across job portals or local directories.
+- **Rules & Reflection Resume Screening**: Evaluates candidate experience, work mode fit (*Remote/Office/Hybrid*), location, salary fit, and core skills with iterative self-correction loops.
+- **Automated Shortlist Email Notifier**: Generates and sends personalized email notifications informing shortlisted candidates.
+
+### **Step 3: Interview, Selection, Offer & Onboarding**
+- **Telephonic Preliminary Round**: AI conducts preliminary telephonic screening checking candidate interest, notice period, availability, and culture fit.
+- **🛑 Human-In-The-Loop (HITL) Checkpoint 1**: Manager interactive decision panel to review candidate pool and approve scheduling technical & prospective manager interview rounds.
+- **Feedback Comparison & Candidate Selection**: Aggregates interviewer notes and ranks candidates for final selection.
+- **🛑 Salary Negotiation & HITL Checkpoint 2**: Conducts salary negotiation and requires explicit manager approval before finalizing the job offer.
+- **Official Offer Letter Generator**: Issues formal offer letter with agreed CTC, joining bonus, and Date of Joining (DOJ).
+- **Background Verification (BGV)**: Simulates automated BGV checks (Employment History, Education Verification, Criminal Check).
+- **Onboarding & Paperwork Automation**: Auto-generates new hire paperwork checklist, IT hardware allocation, and Week 1 orientation schedule.
 
 ---
 
 ## 🚀 Quickstart Guide
 
-### 1. Prerequisites & Installation via `uv`
-
-Ensure you have [`uv`](https://github.com/astral-sh/uv) installed.
+### 1. Installation via `uv`
 
 ```bash
-# Clone or enter project directory
-cd c:/Users/Lenovo/Desktop/Sangeetha--Agent--1
+# Clone repository
+git clone https://github.com/Sangeethacg42/recruitment-selection-agent.git
+cd recruitment-selection-agent
 
 # Install dependencies using uv
 uv sync
 ```
 
-### 2. Configure DeepSeek API Key (Optional)
+### 2. Configure DeepSeek API Key
 
-Create a `.env` file or set the environment variable:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
+Create `.env`:
 ```env
 DEEPSEEK_API_KEY=sk-your-deepseek-api-key
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 ```
-*(Note: You can also enter or update your API key anytime directly inside the Gradio UI Settings tab!)*
 
-### 3. Launch the Application
-
-Run the application using `uv`:
+### 3. Launch Application
 
 ```bash
 uv run main.py
 ```
-
-Open your browser at: `http://127.0.0.1:7860`
-
----
-
-## 📂 Project Structure
-
-```
-.
-├── pyproject.toml               # Project metadata & uv dependencies
-├── .env.example                 # Environment variable template
-├── main.py                      # App entrypoint launching Gradio server
-├── README.md                    # Project documentation
-└── src/
-    └── recruitment_agent/
-        ├── __init__.py
-        ├── config.py            # Global configuration settings
-        ├── llm.py               # DeepSeek LLM wrapper & mock generator
-        ├── models.py            # Pydantic schemas & AgentState TypedDict
-        ├── graph.py             # LangGraph state machine & reflection loop
-        ├── utils.py             # Built-in sample JDs and Resumes
-        └── ui.py                # Gradio UI components & layouts
-```
+Open browser at: `http://127.0.0.1:7895`
 
 ---
 
-## 🧪 Testing & Verification
-
-To run a quick verification of the agent state graph in Python:
+## 🐳 Docker Deployment
 
 ```bash
-uv run python -c "from recruitment_agent.graph import build_recruitment_graph; graph = build_recruitment_graph(); print('Graph compiled successfully!')"
+# Build image
+docker build -t recruitment-agent .
+
+# Run container
+docker run -p 7860:7860 -e DEEPSEEK_API_KEY="sk-your-api-key" recruitment-agent
 ```
