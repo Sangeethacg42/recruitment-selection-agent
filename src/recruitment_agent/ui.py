@@ -491,7 +491,7 @@ def create_ui() -> gr.Blocks:
         btn_s2.click(
             fn=run_step2_sourcing_screening,
             inputs=[s2_portal_select, s2_jd_in, s2_resume_in, s2_req_exp, s2_work_mode, s2_target_loc, api_key_in, model_in],
-            outputs=[s2_postings_out, s2_status_out, s2_summary_out, s2_cat_out, s2_loop_out, s2_email_name]
+            outputs=[s2_postings_out, s2_status_out, s2_summary_out, s2_cat_out, s2_loop_out, s2_email_out, s2_email_name]
         )
 
         btn_shootout_email.click(
