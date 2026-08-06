@@ -12,9 +12,13 @@ from recruitment_agent.llm import generate_structured_output
 logger = logging.getLogger(__name__)
 
 def screener_node(state: AgentState) -> Dict[str, Any]:
-    """Node 1: Evaluates candidate resume against Job Description."""
+    """Node 1: Evaluates candidate resume against Job Description, Experience, Work Mode, & Location."""
     jd = state.get("job_description", "")
     resume = state.get("candidate_resume", "")
+    req_exp = state.get("required_experience", "Flexible / Not Specified")
+    work_mode = state.get("work_mode", "Any / Flexible")
+    target_loc = state.get("target_location", "Flexible / Any")
+    
     critique = state.get("critique")
     reflection_count = state.get("reflection_count", 0)
     api_key = state.get("api_key")
@@ -22,9 +26,13 @@ def screener_node(state: AgentState) -> Dict[str, Any]:
 
     system_prompt = (
         "You are an expert Senior Technical Talent Acquisition Specialist and Executive Recruiter. "
-        "Analyze the provided candidate resume thoroughly against the Job Description. "
-        "Be rigorous, evidence-based, and precise. Identify specific technical capabilities, years of experience, "
-        "education, and dealbreaker gaps."
+        "Analyze the provided candidate resume thoroughly against the Job Description and specified criteria.\n\n"
+        f"JOB CRITERIA:\n"
+        f"- REQUIRED EXPERIENCE: {req_exp}\n"
+        f"- PREFERRED WORK MODE: {work_mode} (Remote / Work From Office / Hybrid)\n"
+        f"- TARGET LOCATION: {target_loc}\n\n"
+        "Be rigorous, evidence-based, and precise. Evaluate experience match, work mode compatibility, location alignment, "
+        "technical capabilities, and critical dealbreaker gaps."
     )
     
     if critique and critique.get("needs_revision"):
@@ -35,7 +43,13 @@ def screener_node(state: AgentState) -> Dict[str, Any]:
             f"Address all critique points directly and refine your analysis for maximum depth and accuracy."
         )
 
-    user_prompt = f"JOB DESCRIPTION:\n{jd}\n\nCANDIDATE RESUME:\n{resume}"
+    user_prompt = (
+        f"JOB DESCRIPTION:\n{jd}\n\n"
+        f"REQUIRED EXPERIENCE: {req_exp}\n"
+        f"WORK MODE PREFERENCE: {work_mode}\n"
+        f"TARGET LOCATION: {target_loc}\n\n"
+        f"CANDIDATE RESUME:\n{resume}"
+    )
 
     screening: CandidateScreening = generate_structured_output(
         system_prompt=system_prompt,
@@ -64,6 +78,9 @@ def evaluator_node(state: AgentState) -> Dict[str, Any]:
     """Node 2 (Reflection Loop): QA Audit evaluating screening report quality."""
     jd = state.get("job_description", "")
     resume = state.get("candidate_resume", "")
+    req_exp = state.get("required_experience", "Flexible")
+    work_mode = state.get("work_mode", "Any")
+    target_loc = state.get("target_location", "Flexible")
     screening_dict = state.get("screening_report", {})
     reflection_count = state.get("reflection_count", 0)
     api_key = state.get("api_key")
@@ -71,13 +88,15 @@ def evaluator_node(state: AgentState) -> Dict[str, Any]:
 
     system_prompt = (
         "You are a Director of HR & Talent Audit Quality Assurance. "
-        "Your task is to audit the initial Candidate Screening Report against the original Job Description and Resume. "
+        "Audit the initial Candidate Screening Report against the original Job Description, Candidate Resume, "
+        "and specified criteria (Required Experience, Work Mode, Location).\n"
         "Critique whether the screening missed key requirements, formed unsubstantiated assumptions, "
-        "or lacked depth in category scoring."
+        "or misjudged work mode and location fit."
     )
 
     user_prompt = (
-        f"JOB DESCRIPTION:\n{jd}\n\n"
+        f"JOB DESCRIPTION:\n{jd}\n"
+        f"CRITERIA: Experience={req_exp}, WorkMode={work_mode}, Location={target_loc}\n\n"
         f"CANDIDATE RESUME:\n{resume}\n\n"
         f"CURRENT SCREENING REPORT:\n{screening_dict}\n\n"
         f"CURRENT REFLECTION ITERATION: {reflection_count}"
@@ -117,7 +136,6 @@ def should_continue(state: AgentState) -> Literal["screener_node", "interview_ge
     needs_revision = critique.get("needs_revision", False)
     quality_score = critique.get("quality_score", 100)
 
-    # Loop back if quality < MIN_PASSING_SCORE or needs revision, up to MAX_REFLECTION_LOOPS
     if (needs_revision or quality_score < config.MIN_PASSING_SCORE) and reflection_count < config.MAX_REFLECTION_LOOPS:
         logger.info(f"Looping back to screener_node (Reflection {reflection_count}/{config.MAX_REFLECTION_LOOPS})")
         return "screener_node"
@@ -135,8 +153,7 @@ def interview_gen_node(state: AgentState) -> Dict[str, Any]:
     system_prompt = (
         "You are an Executive Hiring Committee Manager. "
         "Based on the final candidate screening report and job description, construct a customized, highly targeted "
-        "interview kit. Create technical, behavioral, and practical questions specifically designed to probe candidate "
-        "gaps and confirm candidate strengths."
+        "interview kit. Include questions that evaluate technical fit, experience depth, and work mode/location flexibility."
     )
 
     user_prompt = f"JOB DESCRIPTION:\n{jd}\n\nSCREENING REPORT:\n{screening_dict}"
@@ -169,18 +186,13 @@ def build_recruitment_graph() -> StateGraph:
     """Builds and compiles the LangGraph state machine with reflection loop."""
     workflow = StateGraph(AgentState)
 
-    # Add nodes
     workflow.add_node("screener_node", screener_node)
     workflow.add_node("evaluator_node", evaluator_node)
     workflow.add_node("interview_gen_node", interview_gen_node)
 
-    # Set entry point
     workflow.set_entry_point("screener_node")
-
-    # Add edge from screener to evaluator node
     workflow.add_edge("screener_node", "evaluator_node")
 
-    # Add conditional loop edge from evaluator node
     workflow.add_conditional_edges(
         "evaluator_node",
         should_continue,
@@ -190,7 +202,5 @@ def build_recruitment_graph() -> StateGraph:
         }
     )
 
-    # Add edge from interview generator to end
     workflow.add_edge("interview_gen_node", END)
-
     return workflow.compile()
