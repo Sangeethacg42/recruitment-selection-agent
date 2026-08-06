@@ -15,34 +15,29 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
-    print("[INFO] Starting Recruitment & Selection AI Agent Gradio App...")
+    print("[INFO] Starting 3-Step Autonomous Recruitment Lifecycle AI Agent...")
     print(f"[INFO] DeepSeek Base URL: {config.DEEPSEEK_BASE_URL}")
     print(f"[INFO] DeepSeek Model: {config.DEEPSEEK_MODEL}")
     
     demo = create_ui()
     
-    ports_to_try = [7895, 7890, 7860, 7861]
-    launched = False
+    # Dedicated Port 7990 for 3-Step Recruitment Lifecycle Agent
+    PORT = 7990
+    print(f"[INFO] Launching 3-Step Recruitment AI Agent on http://127.0.0.1:{PORT}")
     
-    for port in ports_to_try:
-        try:
-            print(f"[INFO] Launching on http://127.0.0.1:{port} ...")
-            demo.launch(
-                server_name="127.0.0.1",
-                server_port=port,
-                css=CSS,
-                theme=gr.themes.Soft(),
-                share=False
-            )
-            launched = True
-            break
-        except OSError:
-            print(f"[WARNING] Port {port} in use, trying next...")
-            continue
-            
-    if not launched:
+    try:
         demo.launch(
             server_name="127.0.0.1",
+            server_port=PORT,
+            css=CSS,
+            theme=gr.themes.Soft(),
+            share=False
+        )
+    except OSError:
+        # Fallback to port 7991
+        demo.launch(
+            server_name="127.0.0.1",
+            server_port=7991,
             css=CSS,
             theme=gr.themes.Soft(),
             share=False
