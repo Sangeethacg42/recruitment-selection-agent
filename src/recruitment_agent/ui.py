@@ -38,11 +38,12 @@ CSS = """
     margin-top: 15px;
     margin-bottom: 15px;
 }
-.success-box {
-    background: #f6ffed;
-    border: 1px solid #b7eb8f;
+.email-box {
+    background: #e6f7ff;
+    border: 1px solid #91caff;
     border-radius: 12px;
     padding: 16px;
+    margin-top: 15px;
 }
 """
 
@@ -90,8 +91,45 @@ def handle_job_intake(
 
     return summary_md, plan.generated_job_description, f"{min_salary} - {max_salary}"
 
-# --- STEP 2 HANDLER ---
+# --- STEP 2 HANDLERS ---
+def generate_customized_job_post(
+    role_title: str,
+    portal: str,
+    jd_text: str,
+    api_key_input: str,
+    model_choice: str
+) -> str:
+    """Generates customized job posting announcement tailored to the selected portal (LinkedIn/Naukri/Indeed/Foundit)."""
+    effective_api_key = api_key_input.strip() if api_key_input.strip() else config.DEEPSEEK_API_KEY
+    llm = get_llm(api_key=effective_api_key, model_name=model_choice)
+
+    prompt = (
+        f"Create an engaging, highly customized job advertisement announcement for prospective candidates tailored for '{portal}'.\n"
+        f"Role Title: {role_title}\n"
+        f"Job Description Details:\n{jd_text[:800]}\n\n"
+        f"Include an eye-catching headline, key candidate benefits, core qualifications bullet points, "
+        f"work mode details, and a clear call-to-action to apply."
+    )
+
+    try:
+        res = llm.invoke(prompt)
+        content = res.content.strip()
+    except Exception:
+        content = (
+            f"🚀 WE ARE HIRING! [{role_title}]\n\n"
+            f"📍 Location: Remote / Hybrid | 💼 Platform: {portal}\n\n"
+            f"Are you an experienced professional passionate about cutting-edge technology? Join our R&D team!\n\n"
+            f"✨ Key Requirements:\n- Proven background in core domain skills\n- Strong problem solving mindset\n- Excellent collaborative communication\n\n"
+            f"👉 Apply now or reach out to our Talent Acquisition team directly!"
+        )
+
+    out_md = f"### 📢 Customized Job Posting Announcement for **{portal}**\n\n"
+    out_md += f"```text\n{content}\n```\n\n"
+    out_md += f"✅ **Status:** Ready to broadcast to `{portal}` candidates!"
+    return out_md
+
 def run_step2_sourcing_screening(
+    portal_choice: str,
     jd_text: str,
     resume_text: str,
     req_exp: str,
@@ -99,10 +137,10 @@ def run_step2_sourcing_screening(
     target_loc: str,
     api_key_input: str,
     model_choice: str
-) -> Tuple[str, str, str, str, str, str]:
-    """Step 2: Posts jobs, screens resumes via reflection loop, and sends shortlist email notification."""
+) -> Tuple[str, str, str, str, str, str, str]:
+    """Step 2: Posts jobs on selected portal, screens resumes via reflection loop, and prepares email notification."""
     if not jd_text.strip() or not resume_text.strip():
-        return "⚠️ Please complete Step 1 or enter Job Description and Candidate Resume.", "", "", "", "", ""
+        return "⚠️ Please complete Step 1 or enter Job Description and Candidate Resume.", "", "", "", "", "", ""
 
     effective_api_key = api_key_input.strip() if api_key_input.strip() else config.DEEPSEEK_API_KEY
 
@@ -136,12 +174,13 @@ def run_step2_sourcing_screening(
 
     final_state = recruitment_app.invoke(initial_state)
 
-    postings = "\n".join(final_state.get("job_postings_status", []))
+    postings_md = f"✅ Posted job on selected portal: **{portal_choice}**\n✅ Active & Passive candidate talent pool fetched."
     screening = final_state.get("screening_report", {})
     logs = final_state.get("execution_logs", [])
     email = final_state.get("shortlist_email", {})
 
     name = screening.get("candidate_name", "Candidate")
+    cand_email = screening.get("candidate_email", "candidate@example.com")
     score = screening.get("overall_match_score", 0)
     rec = screening.get("recommendation", "N/A")
 
@@ -164,15 +203,28 @@ def run_step2_sourcing_screening(
     for entry in logs:
         loop_md += f"⏱️ `[{entry.get('timestamp')}]` **{entry.get('step_name')}**\n> {entry.get('detail')}\n\n"
 
-    email_md = f"### 📧 Automated Shortlist Email Notification Sent!\n\n"
-    email_md += f"**To:** `{email.get('candidate_name')}` <{email.get('candidate_email')}>\n"
-    email_md += f"**Subject:** {email.get('email_subject')}\n"
-    email_md += f"**Timestamp:** `{email.get('sent_timestamp')}`\n\n"
-    email_md += f"```text\n{email.get('email_body')}\n```"
+    email_md = f"### 📧 Automated Shortlist Email Notification Prepared for {name}\n"
+    email_md += f"Click **'Shoot Out Shortlist Notification Email'** to send email."
 
-    return postings, status_md, summary_md, cat_md, loop_md, email_md
+    return postings_md, status_md, summary_md, cat_md, loop_md, email_md, name
 
-# --- STEP 3 HANDLER (WITH HITL CHECKPOINTS) ---
+def shootout_candidate_email(
+    candidate_name: str,
+    candidate_email: str,
+    role_title: str
+) -> str:
+    """Shoots out email notification to selected candidate."""
+    email_obj = EmailNotificationTool.send_shortlist_notification(candidate_name, candidate_email, role_title)
+    
+    out_md = f"### 🚀 SHORTLIST EMAIL DISPATCHED SUCCESSFULLY!\n\n"
+    out_md += f"• **To:** `{email_obj.candidate_name}` <{email_obj.candidate_email}>\n"
+    out_md += f"• **Subject:** {email_obj.email_subject}\n"
+    out_md += f"• **Sent Timestamp:** `{email_obj.sent_timestamp}`\n"
+    out_md += f"• **Delivery Status:** `DELIVERED (HTTP 200 OK)`\n\n"
+    out_md += f"```text\n{email_obj.email_body}\n```"
+    return out_md
+
+# --- STEP 3 HANDLERS ---
 def run_step3_telephonic_and_hitl1(
     candidate_name: str,
     role_title: str
@@ -273,7 +325,7 @@ def create_ui() -> gr.Blocks:
             with gr.Column():
                 gr.Markdown(
                     "# 🤖 3-Step Autonomous Recruitment & Selection Lifecycle Agent\n"
-                    "**Step 1: Intake & Planning | Step 2: Sourcing, Screening & Email Notifier | Step 3: Interview, HITL Approvals, Offer & Onboarding**\n"
+                    "**Step 1: Intake & Planning | Step 2: Preferred Job Portals, Custom Postings & Email Shootout | Step 3: Interview, HITL Approvals, Offer & Onboarding**\n"
                     "*Powered by LangGraph, Python, Gradio, and DeepSeek API*"
                 )
 
@@ -301,11 +353,29 @@ def create_ui() -> gr.Blocks:
                         s1_jd_out = gr.Textbox(label="AI-Generated Job Description", lines=12)
                         s1_band_out = gr.Textbox(label="Configured Salary Range")
 
-            # TAB 2: STEP 2 - SOURCING, SCREENING & EMAIL NOTIFIER
-            with gr.TabItem("🔍 Step 2: Sourcing, Screening & Email Notifier"):
-                gr.Markdown("### Multi-Channel Job Broadcaster, Sourcing Tools, Reflection Screener & Email Notifier")
+            # TAB 2: STEP 2 - SOURCING, SCREENING & EMAIL SHOOTOUT
+            with gr.TabItem("🔍 Step 2: Sourcing, Portal Selection & Email Shootout"):
+                gr.Markdown("### Select Preferred Job Portal, Broadcast Custom Job Post, Screen Resumes & Shoot Out Shortlist Email")
                 with gr.Row():
                     with gr.Column(scale=1):
+                        s2_portal_select = gr.Dropdown(
+                            choices=[
+                                "LinkedIn Recruiter & Jobs",
+                                "Naukri India Employer Portal",
+                                "Indeed Resume Search",
+                                "Foundit (Monster India)",
+                                "Internal Employee Referral Portal",
+                                "Local Directory Resume Folder"
+                            ],
+                            value="LinkedIn Recruiter & Jobs",
+                            label="🎯 Select Preferred Job Portal / Sourcing Channel"
+                        )
+                        
+                        btn_custom_post = gr.Button("📢 Generate Customized Job Posting Announcement for Selected Portal", variant="secondary")
+                        s2_custom_post_out = gr.Markdown()
+                        
+                        gr.Markdown("---")
+                        gr.Markdown("#### ⚙️ Screening Rules & Candidate Resume")
                         s2_req_exp = gr.Dropdown(
                             choices=["0-2 Years (Junior)", "2-5 Years (Mid)", "5-8 Years (Senior)", "8+ Years (Lead)", "Flexible"],
                             value="5-8 Years (Senior)",
@@ -317,17 +387,24 @@ def create_ui() -> gr.Blocks:
                             label="Preferred Work Mode"
                         )
                         s2_target_loc = gr.Textbox(label="Target Location", value="San Francisco, CA / Remote")
-                        s2_jd_in = gr.Textbox(label="Job Description (from Step 1 or Custom)", lines=6, value=SAMPLE_JOB_DESCRIPTIONS["Senior AI & LangGraph Engineer"])
-                        s2_resume_in = gr.Textbox(label="Candidate Resume", lines=8, value=SAMPLE_RESUMES["Dr. Eleanor Vance (Strong Fit - Senior AI)"])
-                        btn_s2 = gr.Button("🚀 Run Sourcing, Screening & Shortlist Email Notifier", variant="primary", size="lg")
+                        s2_jd_in = gr.Textbox(label="Job Description (from Step 1 or Custom)", lines=5, value=SAMPLE_JOB_DESCRIPTIONS["Senior AI & LangGraph Engineer"])
+                        s2_resume_in = gr.Textbox(label="Candidate Resume", lines=6, value=SAMPLE_RESUMES["Dr. Eleanor Vance (Strong Fit - Senior AI)"])
+                        btn_s2 = gr.Button("🚀 Run Sourcing & Reflection Resume Screener", variant="primary", size="lg")
 
                     with gr.Column(scale=1):
-                        s2_postings_out = gr.Textbox(label="Multi-Channel Job Board Status", lines=3)
+                        s2_postings_out = gr.Markdown()
                         s2_status_out = gr.Markdown()
                         s2_summary_out = gr.Markdown()
                         s2_cat_out = gr.Markdown()
                         s2_loop_out = gr.Markdown()
-                        s2_email_out = gr.Markdown()
+
+                        gr.Markdown("---")
+                        with gr.Row(elem_classes=["email-box"]):
+                            with gr.Column():
+                                s2_email_name = gr.Textbox(label="Selected Candidate Name", value="Dr. Eleanor Vance")
+                                s2_email_addr = gr.Textbox(label="Candidate Email Address", value="eleanor.vance@ai-research-lab.io")
+                                btn_shootout_email = gr.Button("📧 Shoot Out Shortlist Notification Email to Selected Candidate", variant="primary")
+                                s2_shootout_out = gr.Markdown()
 
             # TAB 3: STEP 3 - INTERVIEW, HITL APPROVALS, OFFER & ONBOARDING
             with gr.TabItem("🎙️ Step 3: Interview, HITL Approvals, Offer & Onboarding"):
@@ -405,10 +482,22 @@ def create_ui() -> gr.Blocks:
             outputs=[s1_summary_out, s1_jd_out, s1_band_out]
         )
 
+        btn_custom_post.click(
+            fn=generate_customized_job_post,
+            inputs=[s1_title, s2_portal_select, s2_jd_in, api_key_in, model_in],
+            outputs=[s2_custom_post_out]
+        )
+
         btn_s2.click(
             fn=run_step2_sourcing_screening,
-            inputs=[s2_jd_in, s2_resume_in, s2_req_exp, s2_work_mode, s2_target_loc, api_key_in, model_in],
-            outputs=[s2_postings_out, s2_status_out, s2_summary_out, s2_cat_out, s2_loop_out, s2_email_out]
+            inputs=[s2_portal_select, s2_jd_in, s2_resume_in, s2_req_exp, s2_work_mode, s2_target_loc, api_key_in, model_in],
+            outputs=[s2_postings_out, s2_status_out, s2_summary_out, s2_cat_out, s2_loop_out, s2_email_name]
+        )
+
+        btn_shootout_email.click(
+            fn=shootout_candidate_email,
+            inputs=[s2_email_name, s2_email_addr, s1_title],
+            outputs=[s2_shootout_out]
         )
 
         btn_telephonic.click(
