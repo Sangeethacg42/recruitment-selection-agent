@@ -8,7 +8,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from recruitment_agent.config import config
 from recruitment_agent.models import (
     CandidateScreening, CategoryScore, EvaluationCritique,
-    InterviewKit, InterviewQuestion
+    InterviewKit, InterviewQuestion, JobIntakePlan, OfferLetter
 )
 
 logger = logging.getLogger(__name__)
@@ -81,15 +81,44 @@ def _generate_mock_output(output_schema: Type[T], prompt: str) -> T:
     """Mock generator for demonstration when API key is unconfigured."""
     prompt_lower = prompt.lower()
     
-    if output_schema == CandidateScreening:
+    if output_schema == JobIntakePlan:
+        return JobIntakePlan(
+            role_title="Senior AI & LangGraph Engineer",
+            department="Artificial Intelligence R&D",
+            key_skills_needed=["LangGraph", "Python 3.11", "DeepSeek API", "Pydantic", "FastAPI", "Docker"],
+            generated_job_description="""
+JOB TITLE: Senior AI & LangGraph Engineer
+DEPARTMENT: Artificial Intelligence R&D
+LOCATION: Remote / Hybrid
+
+ROLES & RESPONSIBILITIES:
+- Architect, build, and deploy production-grade multi-agent AI systems using LangGraph, LangChain, and Python 3.11+.
+- Design dynamic self-correction and evaluation loops to ensure high-accuracy structured LLM outputs.
+- Integrate open-source and commercial LLM APIs (DeepSeek, OpenAI) with optimized prompts and JSON schema constraints.
+- Collaborate with product and HR leadership to automate talent selection pipelines.
+
+REQUIRED QUALIFICATIONS:
+- 5+ years of software engineering experience with at least 2+ years building LLM-powered applications.
+- Strong proficiency in Python, Pydantic, Asyncio, and FastAPI/Gradio.
+- Direct experience implementing LangGraph cyclic graphs, state management, and custom evaluators.
+- Bachelor's degree or higher in Computer Science or related STEM field.
+""",
+            min_salary_band="18 LPA",
+            max_salary_band="28 LPA",
+            currency="INR"
+        )
+        
+    elif output_schema == CandidateScreening:
         if "weak candidate" in prompt_lower or "junior" in prompt_lower:
             return CandidateScreening(
                 candidate_name="Alex Mercer",
+                candidate_email="alex.mercer@devmail.com",
                 overall_match_score=58,
                 recommendation="HOLD",
-                executive_summary="Alex presents a solid foundation in basic software development but falls short of the required experience level and specialized AI/ML system depth specified.",
+                executive_summary="Alex presents a solid foundation in basic software development but falls short of the required senior experience level and specialized AI system depth specified.",
                 experience_fit_commentary="Candidate has ~3.5 years experience vs the required 5+ years senior requirement. Gap of ~1.5 years.",
-                work_mode_and_location_fit="Candidate prefers Hybrid/Remote in Austin, TX. Fits Remote setup but requires relocation for Work From Office.",
+                work_mode_and_location_fit="Candidate prefers Hybrid/Remote in Austin, TX.",
+                salary_expectation_fit="14 LPA (Within budget)",
                 key_qualifications=[
                     "3.5 years Python programming experience",
                     "Basic REST API integration skills",
@@ -97,41 +126,35 @@ def _generate_mock_output(output_schema: Type[T], prompt: str) -> T:
                 ],
                 critical_gaps=[
                     "Missing 5+ years required senior lead experience",
-                    "No experience with LangChain, LangGraph, or multi-agent architectures",
-                    "Limited high-throughput production deployment background"
+                    "No experience with LangChain, LangGraph, or multi-agent architectures"
                 ],
                 category_scores=[
                     CategoryScore(
                         category="Technical Skills",
                         score=60,
                         strengths=["Python proficiency", "Git"],
-                        gaps=["LangGraph", "Vector DBs", "Async architectures"],
-                        summary="Meets baseline Python requirements but lacks advanced stack expertise."
+                        gaps=["LangGraph", "Vector DBs"],
+                        summary="Meets baseline Python requirements."
                     ),
                     CategoryScore(
-                        category="Experience & Seniority Fit",
+                        category="Experience Fit",
                         score=55,
                         strengths=["Mid-level API development"],
-                        gaps=["Architectural leadership", "Scale requirements"],
+                        gaps=["Architectural leadership"],
                         summary="Experience level is mid-tier (3.5 yrs) vs required Senior (5+ yrs)."
-                    ),
-                    CategoryScore(
-                        category="Work Mode & Location Alignment",
-                        score=70,
-                        strengths=["Open to remote work"],
-                        gaps=["Requires relocation for physical office"],
-                        summary="Location and work mode compatibility verified."
                     )
                 ]
             )
         else:
             return CandidateScreening(
                 candidate_name="Dr. Eleanor Vance",
+                candidate_email="eleanor.vance@ai-research-lab.io",
                 overall_match_score=92,
                 recommendation="STRONG_PASS",
-                executive_summary="Dr. Eleanor Vance is an exceptional candidate. She brings 7+ years of hands-on experience designing distributed LLM applications, custom LangGraph workflows, and scalable vector search pipelines.",
+                executive_summary="Dr. Eleanor Vance is an exceptional candidate. She brings 7.5 years of hands-on experience designing distributed LLM applications, custom LangGraph workflows, and scalable vector search pipelines.",
                 experience_fit_commentary="Candidate possesses 7.5 years of experience, exceeding the 5+ years requirement.",
                 work_mode_and_location_fit="Candidate is located in San Francisco, CA and prefers Remote / Hybrid work mode. Fully aligns with target criteria.",
+                salary_expectation_fit="24 LPA (Well within 18-28 LPA target band)",
                 key_qualifications=[
                     "7.5 years Senior AI Engineering background (Exceeds 5+ yrs requirement)",
                     "Deep mastery of LangGraph, LangChain, Pydantic, and DeepSeek API integrations",
@@ -150,18 +173,11 @@ def _generate_mock_output(output_schema: Type[T], prompt: str) -> T:
                         summary="Outstanding technical alignment with core AI stack."
                     ),
                     CategoryScore(
-                        category="Experience & Seniority Fit",
+                        category="Experience Fit",
                         score=92,
                         strengths=["7.5 years total experience", "Led 6 AI engineers"],
                         gaps=[],
                         summary="Exceeds senior level experience requirement."
-                    ),
-                    CategoryScore(
-                        category="Work Mode & Location Alignment",
-                        score=90,
-                        strengths=["Remote / Hybrid readiness", "Flexible schedule"],
-                        gaps=[],
-                        summary="Perfect work mode and location match."
                     )
                 ]
             )
@@ -171,9 +187,41 @@ def _generate_mock_output(output_schema: Type[T], prompt: str) -> T:
             quality_score=94,
             needs_revision=False,
             critique_notes=[
-                "Screening report is comprehensive, evidence-backed, and accurately evaluates experience level, work mode preferences, and location fit."
+                "Screening report is comprehensive, evidence-backed, and accurately evaluates experience level, work mode preferences, and salary expectations."
             ],
             focus_areas_for_refinement=[]
+        )
+
+    elif output_schema == OfferLetter:
+        return OfferLetter(
+            candidate_name="Dr. Eleanor Vance",
+            role_title="Senior AI & LangGraph Engineer",
+            offered_ctc="24,00,000 INR per annum (24 LPA)",
+            joining_bonus="2,00,000 INR (Joining Bonus)",
+            work_mode="Remote / Hybrid",
+            office_location="Bengaluru / San Francisco / Remote",
+            date_of_joining="1st September 2026",
+            offer_letter_text="""
+FORMAL OFFER OF EMPLOYMENT
+
+Date: August 6, 2026
+Candidate Name: Dr. Eleanor Vance
+
+Dear Eleanor,
+
+We are delighted to offer you the full-time position of Senior AI & LangGraph Engineer. 
+
+COMPENSATION & BENEFIT HIGHLIGHTS:
+- Annual Fixed Compensation (CTC): INR 24,00,000 (Twenty-Four Lakhs per annum)
+- One-time Signing / Joining Bonus: INR 2,00,000
+- Work Mode: Remote / Hybrid
+- Date of Joining: September 1, 2026
+
+We look forward to welcome you to our AI R&D Engineering Team!
+
+Sincerely,
+Director of Human Resources & Talent Acquisition
+"""
         )
             
     elif output_schema == InterviewKit:
@@ -188,13 +236,6 @@ def _generate_mock_output(output_schema: Type[T], prompt: str) -> T:
                     question_text="Can you describe how you implement cyclic nodes and checkpointing in LangGraph to prevent infinite loops during self-correction?",
                     why_asked="Candidate claims 7+ years AI experience and LangGraph mastery.",
                     ideal_answer_rubric="Should mention typed dictionary state, recursion limits, conditional routing functions, and checkpointers."
-                ),
-                InterviewQuestion(
-                    question_type="System Design / Practical",
-                    topic="Work Mode Collaboration & Scalability",
-                    question_text="How do you effectively lead a distributed remote engineering team across multiple time zones while deploying production AI microservices?",
-                    why_asked="Probing work mode alignment and leadership capabilities.",
-                    ideal_answer_rubric="Discusses asynchronous documentation, CI/CD automated testing, clear API contracts, and daily standups."
                 )
             ],
             overall_hiring_advice="Proceed to Technical Onsite Interview immediately. High priority candidate with excellent alignment."
