@@ -5,7 +5,7 @@ import datetime
 from typing import Tuple, Dict, Any, List
 
 from recruitment_agent.config import config
-from recruitment_agent.utils import SAMPLE_JOB_DESCRIPTIONS, SAMPLE_RESUMES
+from recruitment_agent.utils import SAMPLE_JOB_DESCRIPTIONS, SAMPLE_RESUMES, ROLE_PRESETS
 from recruitment_agent.graph import build_recruitment_graph
 from recruitment_agent.llm import get_llm, generate_structured_output
 from recruitment_agent.models import JobIntakePlan, OfferLetter, BGVReport, OnboardingPackage
@@ -48,6 +48,14 @@ CSS = """
 
 SOURCED_CANDIDATES_CACHE: List[SourcedCandidate] = []
 
+# --- DYNAMIC ROLE PRESET UPDATER ---
+def update_role_preset_details(role_title: str) -> Tuple[str, str, str, str, str]:
+    """Dynamically populates department, core skills, and salary bands based on selected Role Title."""
+    if role_title in ROLE_PRESETS:
+        preset = ROLE_PRESETS[role_title]
+        return role_title, preset["department"], preset["skills"], preset["min_salary"], preset["max_salary"]
+    return role_title, "Engineering & Technology", "Custom skills...", "15 LPA", "25 LPA"
+
 # --- STEP 1 HANDLER ---
 def handle_job_intake(
     role_title: str,
@@ -76,11 +84,11 @@ def handle_job_intake(
         model_name=model_choice
     )
 
-    summary_md = f"### ✅ Step 1 Complete: Job Intake & Planning for `{plan.role_title}`\n"
-    summary_md += f"**Department:** {plan.department} &nbsp;|&nbsp; **Target Salary Band:** `{plan.min_salary_band} - {plan.max_salary_band}`\n\n"
-    summary_md += f"**Core Skills Needed:** {', '.join(plan.key_skills_needed)}\n"
+    summary_md = f"### ✅ Step 1 Complete: Job Intake & Planning for `{role_title}`\n"
+    summary_md += f"**Department:** {department} &nbsp;|&nbsp; **Target Salary Band:** `{min_salary} - {max_salary}`\n\n"
+    summary_md += f"**Core Skills Needed:** {skills_input}\n"
 
-    return summary_md, plan.generated_job_description, f"{plan.min_salary_band} - {plan.max_salary_band}"
+    return summary_md, plan.generated_job_description, f"{min_salary} - {max_salary}"
 
 # --- STEP 2 HANDLER ---
 def run_step2_sourcing_screening(
@@ -130,7 +138,6 @@ def run_step2_sourcing_screening(
 
     postings = "\n".join(final_state.get("job_postings_status", []))
     screening = final_state.get("screening_report", {})
-    critique = final_state.get("critique", {})
     logs = final_state.get("execution_logs", [])
     email = final_state.get("shortlist_email", {})
 
@@ -225,7 +232,6 @@ def run_step3_offer_and_onboarding(
 
     effective_api_key = api_key_input.strip() if api_key_input.strip() else config.DEEPSEEK_API_KEY
 
-    # Generate Offer Letter
     offer: OfferLetter = generate_structured_output(
         system_prompt="Generate official formal Offer Letter text based on candidate, CTC, bonus, work mode, and joining date.",
         user_prompt=f"Candidate: {candidate_name}, Role: {role_title}, CTC: {agreed_ctc}, Bonus: {joining_bonus}, WorkMode: {work_mode}, DOJ: {doj}",
@@ -234,10 +240,7 @@ def run_step3_offer_and_onboarding(
         model_name=model_choice
     )
 
-    # Execute BGV Check
     bgv: BGVReport = BackgroundVerificationTool.execute_bgv_check(candidate_name)
-
-    # Generate Onboarding Package
     onboarding: OnboardingPackage = OnboardingTool.generate_onboarding_package(candidate_name, role_title, offer.date_of_joining)
 
     hitl2_summary = f"### ✅ HITL Checkpoint 2 APPROVED by Hiring Manager\n"
@@ -277,15 +280,20 @@ def create_ui() -> gr.Blocks:
         with gr.Tabs():
             # TAB 1: STEP 1 - JOB INTAKE & PLANNING
             with gr.TabItem("📋 Step 1: Job Intake & Planning"):
-                gr.Markdown("### Define Need, Generate AI Job Description, & Configure Salary Bands")
+                gr.Markdown("### Define Need, Select Role Preset, Customize Department & Skills, & Configure Salary Bands")
                 with gr.Row():
                     with gr.Column():
+                        s1_role_dropdown = gr.Dropdown(
+                            choices=list(ROLE_PRESETS.keys()) + ["Custom Role..."],
+                            value="Senior AI & LangGraph Engineer",
+                            label="Select Open Role Title (Presets auto-customize Department & Skills)"
+                        )
                         s1_title = gr.Textbox(label="Role Title", value="Senior AI & LangGraph Engineer")
-                        s1_dept = gr.Textbox(label="Department / Team", value="Artificial Intelligence R&D")
-                        s1_skills = gr.Textbox(label="Core Skills Needed (comma-separated)", value="LangGraph, Python 3.11, DeepSeek API, Pydantic, FastAPI, Docker")
+                        s1_dept = gr.Textbox(label="Department / Team", value=ROLE_PRESETS["Senior AI & LangGraph Engineer"]["department"])
+                        s1_skills = gr.Textbox(label="Core Skills Needed (comma-separated)", value=ROLE_PRESETS["Senior AI & LangGraph Engineer"]["skills"])
                         with gr.Row():
-                            s1_sal_min = gr.Textbox(label="Min Salary Band", value="18 LPA")
-                            s1_sal_max = gr.Textbox(label="Max Salary Band", value="28 LPA")
+                            s1_sal_min = gr.Textbox(label="Min Salary Band", value=ROLE_PRESETS["Senior AI & LangGraph Engineer"]["min_salary"])
+                            s1_sal_max = gr.Textbox(label="Max Salary Band", value=ROLE_PRESETS["Senior AI & LangGraph Engineer"]["max_salary"])
                         btn_s1 = gr.Button("📋 Generate Job Intake Plan & AI Description", variant="primary", size="lg")
 
                     with gr.Column():
@@ -382,6 +390,13 @@ def create_ui() -> gr.Blocks:
                         value=config.DEEPSEEK_MODEL,
                         label="DeepSeek Model"
                     )
+
+        # Dynamic Role Preset Event Handler
+        s1_role_dropdown.change(
+            fn=update_role_preset_details,
+            inputs=[s1_role_dropdown],
+            outputs=[s1_title, s1_dept, s1_skills, s1_sal_min, s1_sal_max]
+        )
 
         # Wire Event Handlers
         btn_s1.click(
