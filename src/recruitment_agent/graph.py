@@ -25,8 +25,8 @@ def job_intake_node(state: AgentState) -> Dict[str, Any]:
 
     system_prompt = (
         "You are an Executive Talent Acquisition Planning Director. "
-        "Based on the provided open role title, generate a comprehensive Job Intake Plan including role title, "
-        "department, core skills, professional Job Description, and competitive salary band."
+        "Based on the provided open role title, generate a comprehensive Job Intake Plan including role_title, "
+        "department, key_skills_needed, generated_job_description, min_salary_band, and max_salary_band."
     )
     user_prompt = f"Role Title & Need: {title}"
 
@@ -72,7 +72,7 @@ def sourcing_posting_node(state: AgentState) -> Dict[str, Any]:
     log_entry = {
         "step_name": "Step 2: Multi-Channel Job Posting",
         "node_id": "sourcing_posting_node",
-        "detail": f"Broadcasted job postings across 4 channels for '{title}...'",
+        "detail": f"Broadcasted job postings across channels for '{title}...'",
         "timestamp": datetime.datetime.now().strftime("%H:%M:%S")
     }
 
@@ -100,7 +100,7 @@ def screener_node(state: AgentState) -> Dict[str, Any]:
     model_name = state.get("model_name")
 
     system_prompt = (
-        "You are an Senior Technical Recruiter. Analyze candidate resume against Job Description and rules:\n"
+        "You are a Senior Technical Recruiter. Analyze candidate resume against Job Description and rules:\n"
         f"- REQUIRED EXPERIENCE: {req_exp}\n"
         f"- WORK MODE: {work_mode}\n"
         f"- LOCATION: {target_loc}\n"
@@ -240,19 +240,22 @@ def offer_and_onboarding_node(state: AgentState) -> Dict[str, Any]:
     api_key = state.get("api_key")
     model_name = state.get("model_name")
 
-    # Generate Offer Letter
+    # Refined System Prompt for OfferLetter
+    system_prompt = (
+        "You are an Executive Compensation & HR Operations Manager. "
+        "Generate a formal Offer Letter JSON with exact fields: candidate_name, role_title, offered_ctc, "
+        "joining_bonus, work_mode, office_location, date_of_joining, and offer_letter_text."
+    )
+
     offer: OfferLetter = generate_structured_output(
-        system_prompt="Generate official Offer Letter with CTC, joining bonus, work mode, and joining date.",
-        user_prompt=f"Candidate: {candidate_name}, Role: {role_title}",
+        system_prompt=system_prompt,
+        user_prompt=f"Candidate: {candidate_name}, Role: {role_title}, Compensation: 24 LPA",
         output_schema=OfferLetter,
         api_key=api_key,
         model_name=model_name
     )
 
-    # Execute BGV Check
     bgv = BackgroundVerificationTool.execute_bgv_check(candidate_name)
-
-    # Generate Onboarding Package
     onboarding = OnboardingTool.generate_onboarding_package(candidate_name, role_title, offer.date_of_joining)
 
     log_entry = {
@@ -277,7 +280,6 @@ def build_recruitment_graph() -> StateGraph:
     """Builds and compiles the full 3-step recruitment lifecycle state machine."""
     workflow = StateGraph(AgentState)
 
-    # Add Nodes
     workflow.add_node("job_intake_node", job_intake_node)
     workflow.add_node("sourcing_posting_node", sourcing_posting_node)
     workflow.add_node("screener_node", screener_node)
@@ -286,7 +288,6 @@ def build_recruitment_graph() -> StateGraph:
     workflow.add_node("telephonic_screening_node", telephonic_screening_node)
     workflow.add_node("offer_and_onboarding_node", offer_and_onboarding_node)
 
-    # Entry Point & Edges
     workflow.set_entry_point("job_intake_node")
     workflow.add_edge("job_intake_node", "sourcing_posting_node")
     workflow.add_edge("sourcing_posting_node", "screener_node")
