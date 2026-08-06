@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  recruitment-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: recruitment_selection_agent
+    ports:
+      - "7860:7860"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+      - PORT=7860
+      - HOST=0.0.0.0
+      - SHARE=false
+    restart: unless-stopped
