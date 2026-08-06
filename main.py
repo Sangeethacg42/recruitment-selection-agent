@@ -15,15 +15,15 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
-    print("[INFO] Starting Latest 3-Step Recruitment AI Agent on Port 8000...")
+    print("[INFO] Starting Latest 3-Step Recruitment AI Agent (with Portal Selection & Email Shootout)...")
     print(f"[INFO] DeepSeek Base URL: {config.DEEPSEEK_BASE_URL}")
     print(f"[INFO] DeepSeek Model: {config.DEEPSEEK_MODEL}")
     
     demo = create_ui()
     
-    # Fresh Dedicated Port 8000
-    PORT = 8000
-    print(f"[INFO] Access the latest 3-Step Recruitment AI Agent at http://127.0.0.1:{PORT}")
+    # Dedicated Port 8050
+    PORT = 8050
+    print(f"[INFO] Access the latest app at http://127.0.0.1:{PORT}")
     
     try:
         demo.launch(
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     except OSError:
         demo.launch(
             server_name="127.0.0.1",
-            server_port=8080,
+            server_port=8055,
             css=CSS,
             theme=gr.themes.Soft(),
             share=False
