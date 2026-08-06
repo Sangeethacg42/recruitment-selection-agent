@@ -42,7 +42,6 @@ def generate_structured_output(
     """
     key = api_key if api_key else config.DEEPSEEK_API_KEY
     
-    # If no key provided, use mock generation
     if not key or key.strip() == "" or key == "your_deepseek_api_key_here":
         logger.warning("No valid DeepSeek API key provided. Using Mock LLM engine.")
         return _generate_mock_output(output_schema, user_prompt)
@@ -66,7 +65,6 @@ def generate_structured_output(
         response = llm.invoke(messages)
         content = response.content.strip()
         
-        # Clean JSON markdown if wrapped
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0].strip()
         elif "```" in content:
@@ -84,15 +82,16 @@ def _generate_mock_output(output_schema: Type[T], prompt: str) -> T:
     prompt_lower = prompt.lower()
     
     if output_schema == CandidateScreening:
-        # Detect candidate fit from prompt hints if any
-        if "weak candidate" in prompt_lower or "junior" in prompt_lower and "senior" in prompt_lower:
+        if "weak candidate" in prompt_lower or "junior" in prompt_lower:
             return CandidateScreening(
                 candidate_name="Alex Mercer",
                 overall_match_score=58,
                 recommendation="HOLD",
-                executive_summary="Alex presents a solid foundation in basic software development but lacks the senior architecture experience, scale requirements, and specialized AI/ML system depth specified in the job description.",
+                executive_summary="Alex presents a solid foundation in basic software development but falls short of the required experience level and specialized AI/ML system depth specified.",
+                experience_fit_commentary="Candidate has ~3.5 years experience vs the required 5+ years senior requirement. Gap of ~1.5 years.",
+                work_mode_and_location_fit="Candidate prefers Hybrid/Remote in Austin, TX. Fits Remote setup but requires relocation for Work From Office.",
                 key_qualifications=[
-                    "3 years Python programming experience",
+                    "3.5 years Python programming experience",
                     "Basic REST API integration skills",
                     "Familiarity with Git and Docker containers"
                 ],
@@ -110,99 +109,72 @@ def _generate_mock_output(output_schema: Type[T], prompt: str) -> T:
                         summary="Meets baseline Python requirements but lacks advanced stack expertise."
                     ),
                     CategoryScore(
-                        category="Relevant Experience",
-                        score=50,
+                        category="Experience & Seniority Fit",
+                        score=55,
                         strengths=["Mid-level API development"],
-                        gaps=["Architectural leadership", "Large scale distributed systems"],
-                        summary="Experience level is mid-tier (3 yrs) vs required Senior (6+ yrs)."
+                        gaps=["Architectural leadership", "Scale requirements"],
+                        summary="Experience level is mid-tier (3.5 yrs) vs required Senior (5+ yrs)."
                     ),
                     CategoryScore(
-                        category="Education & Certifications",
-                        score=75,
-                        strengths=["B.S. Computer Science"],
-                        gaps=["No specialized AI certifications"],
-                        summary="Solid educational background."
-                    ),
-                    CategoryScore(
-                        category="Cultural & Communication Fit",
+                        category="Work Mode & Location Alignment",
                         score=70,
-                        strengths=["Clear resume formatting"],
-                        gaps=["Limited documented cross-team mentoring"],
-                        summary="Good communicator."
+                        strengths=["Open to remote work"],
+                        gaps=["Requires relocation for physical office"],
+                        summary="Location and work mode compatibility verified."
                     )
                 ]
             )
         else:
             return CandidateScreening(
                 candidate_name="Dr. Eleanor Vance",
-                overall_match_score=88,
+                overall_match_score=92,
                 recommendation="STRONG_PASS",
-                executive_summary="Dr. Eleanor Vance is an exceptional candidate for the Senior AI Engineer role. She brings 7 years of hands-on experience designing distributed LLM applications, custom LangGraph workflows, and scalable vector search pipelines.",
+                executive_summary="Dr. Eleanor Vance is an exceptional candidate. She brings 7+ years of hands-on experience designing distributed LLM applications, custom LangGraph workflows, and scalable vector search pipelines.",
+                experience_fit_commentary="Candidate possesses 7.5 years of experience, exceeding the 5+ years requirement.",
+                work_mode_and_location_fit="Candidate is located in San Francisco, CA and prefers Remote / Hybrid work mode. Fully aligns with target criteria.",
                 key_qualifications=[
-                    "7+ years Senior Software & AI Engineering background",
-                    "Deep mastery of LangGraph, LangChain, Pydantic, and OpenAI API integrations",
-                    "Proven track record scaling LLM microservices handling 10M+ daily API queries",
-                    "M.S. & Ph.D. in Computer Science with focus on Machine Learning"
+                    "7.5 years Senior AI Engineering background (Exceeds 5+ yrs requirement)",
+                    "Deep mastery of LangGraph, LangChain, Pydantic, and DeepSeek API integrations",
+                    "Proven track record scaling LLM microservices handling 15M+ daily requests",
+                    "Ph.D. in Computer Science from Stanford University"
                 ],
                 critical_gaps=[
-                    "Primarily AWS-focused; JD specifies GCP & Azure preference",
-                    "Salary expectation is at the top of the budget band"
+                    "Primarily AWS-focused; JD specifies GCP & Azure preference"
                 ],
                 category_scores=[
                     CategoryScore(
                         category="Technical Skills",
-                        score=92,
-                        strengths=["LangGraph expertise", "Python 3.11+", "Distributed Vector DBs"],
+                        score=95,
+                        strengths=["LangGraph expertise", "Python 3.11+", "DeepSeek API"],
                         gaps=["GCP Cloud Platform"],
                         summary="Outstanding technical alignment with core AI stack."
                     ),
                     CategoryScore(
-                        category="Relevant Experience",
-                        score=88,
-                        strengths=["Led 5 AI engineers", "Built production multi-agent systems"],
-                        gaps=["None significant"],
-                        summary="Exceeds senior level experience requirements."
-                    ),
-                    CategoryScore(
-                        category="Education & Certifications",
-                        score=95,
-                        strengths=["Ph.D. in Computer Science"],
+                        category="Experience & Seniority Fit",
+                        score=92,
+                        strengths=["7.5 years total experience", "Led 6 AI engineers"],
                         gaps=[],
-                        summary="Superior academic credentials."
+                        summary="Exceeds senior level experience requirement."
                     ),
                     CategoryScore(
-                        category="Cultural & Communication Fit",
-                        score=85,
-                        strengths=["Tech blogging & conference speaker", "Mentorship focus"],
-                        gaps=["Preference for fully remote setup"],
-                        summary="High collaborative leadership potential."
+                        category="Work Mode & Location Alignment",
+                        score=90,
+                        strengths=["Remote / Hybrid readiness", "Flexible schedule"],
+                        gaps=[],
+                        summary="Perfect work mode and location match."
                     )
                 ]
             )
             
     elif output_schema == EvaluationCritique:
-        if "first screening" in prompt_lower or "revision 0" in prompt_lower:
-            return EvaluationCritique(
-                quality_score=72,
-                needs_revision=True,
-                critique_notes=[
-                    "The screening report evaluated technical skills well but did not check if the candidate possesses mandatory security clearance or remote working zone requirements.",
-                    "Needs explicit verification of salary alignment and candidate availability timeframe."
-                ],
-                focus_areas_for_refinement=[
-                    "Re-verify job requirement dealbreakers against candidate resume",
-                    "Provide more granular evidence for the Cultural & Communication score"
-                ]
-            )
-        else:
-            return EvaluationCritique(
-                quality_score=94,
-                needs_revision=False,
-                critique_notes=[
-                    "Screening report is comprehensive, evidence-backed, and accurately reflects JD requirements against candidate background."
-                ],
-                focus_areas_for_refinement=[]
-            )
+        return EvaluationCritique(
+            quality_score=94,
+            needs_revision=False,
+            critique_notes=[
+                "Screening report is comprehensive, evidence-backed, and accurately evaluates experience level, work mode preferences, and location fit."
+            ],
+            focus_areas_for_refinement=[]
+        )
             
     elif output_schema == InterviewKit:
         return InterviewKit(
@@ -214,26 +186,18 @@ def _generate_mock_output(output_schema: Type[T], prompt: str) -> T:
                     question_type="Technical",
                     topic="LangGraph State Persistence & Reflection Loops",
                     question_text="Can you describe how you implement cyclic nodes and checkpointing in LangGraph to prevent infinite loops during self-correction?",
-                    why_asked="The candidate claims extensive LangGraph experience. This tests actual production implementation depth.",
-                    ideal_answer_rubric="Should mention typed dictionary state, recursion limits, conditional routing functions based on state flags, and persistent memory saver checkpointers."
+                    why_asked="Candidate claims 7+ years AI experience and LangGraph mastery.",
+                    ideal_answer_rubric="Should mention typed dictionary state, recursion limits, conditional routing functions, and checkpointers."
                 ),
                 InterviewQuestion(
                     question_type="System Design / Practical",
-                    topic="Production Scale & Rate Limiting",
-                    question_text="How would you architect a fall-back strategy when DeepSeek or OpenAI endpoints hit rate limits (HTTP 429) during peak batch processing?",
-                    why_asked="JD requires robust production error handling and cost/latency optimization.",
-                    ideal_answer_rubric="Should discuss exponential backoff retries, multi-provider fallback routing (e.g., DeepSeek -> Azure OpenAI), token usage budgeting, and async task queuing with Celery/Redis."
-                ),
-                InterviewQuestion(
-                    question_type="Behavioral",
-                    topic="Technical Leadership & Trade-offs",
-                    question_text="Describe a situation where business leadership pushed for a quick LLM feature launch, but you identified security or hallucination risks. How did you handle it?",
-                    why_asked="Evaluates senior-level stakeholder management and technical governance.",
-                    ideal_answer_rubric="Looks for structured risk assessment, prototype guardrails (e.g. strict schema validation), and clear communication with non-technical leaders."
+                    topic="Work Mode Collaboration & Scalability",
+                    question_text="How do you effectively lead a distributed remote engineering team across multiple time zones while deploying production AI microservices?",
+                    why_asked="Probing work mode alignment and leadership capabilities.",
+                    ideal_answer_rubric="Discusses asynchronous documentation, CI/CD automated testing, clear API contracts, and daily standups."
                 )
             ],
             overall_hiring_advice="Proceed to Technical Onsite Interview immediately. High priority candidate with excellent alignment."
         )
 
-    # Fallback default object
     return output_schema.model_construct()
