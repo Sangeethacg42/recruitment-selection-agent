@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
 class CategoryScore(BaseModel):
-    category: str = Field(description="Category name, e.g. Technical Skills, Experience, Education, Culture Fit")
+    category: str = Field(description="Category name, e.g. Technical Skills, Experience, Education, Work Mode & Location Fit")
     score: int = Field(description="Score out of 100", ge=0, le=100)
     strengths: List[str] = Field(description="Identified candidate strengths in this category")
     gaps: List[str] = Field(description="Identified gaps or missing qualifications")
@@ -14,6 +14,8 @@ class CandidateScreening(BaseModel):
     overall_match_score: int = Field(description="Overall match percentage out of 100", ge=0, le=100)
     recommendation: Literal["STRONG_PASS", "INTERVIEW", "HOLD", "REJECT"] = Field(description="Hiring recommendation")
     executive_summary: str = Field(description="High-level 3-4 sentence summary of candidate suitability")
+    experience_fit_commentary: str = Field(description="Assessment of candidate's total experience vs required experience")
+    work_mode_and_location_fit: str = Field(description="Assessment of candidate's location and preferred work mode (Remote/Office/Hybrid) vs job requirement")
     key_qualifications: List[str] = Field(description="Primary highlights matching the job description")
     critical_gaps: List[str] = Field(description="Main dealbreakers or missing requirements")
     category_scores: List[CategoryScore] = Field(description="Breakdown across key evaluation dimensions")
@@ -38,15 +40,12 @@ class InterviewKit(BaseModel):
     questions: List[InterviewQuestion] = Field(description="List of targeted interview questions")
     overall_hiring_advice: str = Field(description="Final strategic advice for the hiring committee")
 
-class ExecutionStepLog(BaseModel):
-    step_name: str
-    node_id: str
-    detail: str
-    timestamp: str
-
 class AgentState(TypedDict):
     job_description: str
     candidate_resume: str
+    required_experience: str
+    work_mode: str
+    target_location: str
     screening_report: Optional[Dict[str, Any]]
     critique: Optional[Dict[str, Any]]
     interview_kit: Optional[Dict[str, Any]]
